@@ -303,6 +303,10 @@
     display:flex; align-items:center; justify-content:center; z-index:500; padding:20px;
   }
   #login-screen.hidden, #setup-curtain.hidden{ display:none; }
+  /* Sembunyikan seluruh #app sampai JS memutuskan tampilan awal yang benar
+     (login/teknisi/order) - mencegah Order Masuk "kelihatan sekejap" saat
+     reload/refresh sebelum JS sempat jalan, terutama untuk role teknisi. */
+  #app.boot-hidden{ display:none; }
 
   /* ---------- Mode Teknisi ---------- */
   .tek-btn-big{ width:100%; padding:16px; font-size:15px; border-radius:12px; }
@@ -412,7 +416,7 @@
   </div>
 </div>
 
-<div id="app">
+<div id="app" class="boot-hidden">
 
   <div class="topbar">
     <div class="brand">
@@ -3715,6 +3719,29 @@
 
   // ---------- Init ----------
   (async function init(){
+    // Tentukan tampilan awal SECARA SINKRON (sebelum await apa pun), supaya
+    // browser tidak sempat menggambar Order Masuk dulu (default HTML) baik
+    // saat reload/refresh maupun saat pertama buka - terutama untuk teknisi.
+    (function decideInitialView(){
+      const preApiUrl = localStorage.getItem(STORAGE_KEY_API_URL) || '';
+      const preApiSecret = localStorage.getItem(STORAGE_KEY_API_SECRET) || '';
+      const preConfigured = !!(preApiUrl && preApiSecret);
+      let preUser = null;
+      if(preConfigured){
+        try{
+          const raw = localStorage.getItem(STORAGE_KEY_SESSION);
+          if(raw) preUser = JSON.parse(raw);
+        }catch(e){ preUser = null; }
+      }
+      if(preUser && preUser.role === 'teknisi'){
+        document.querySelector('.tabs').style.display = 'none';
+        document.getElementById('btn-settings').style.display = 'none';
+        document.querySelectorAll('.view').forEach(v=> v.classList.remove('active'));
+        document.getElementById('view-teknisi').classList.add('active');
+      }
+      document.getElementById('app').classList.remove('boot-hidden');
+    })();
+
     document.getElementById('brand-mark').innerHTML = `<img src="${LOGO_DATA_URI}" alt="MustCare">`;
     document.getElementById('login-brand-mark').innerHTML = `<img src="${LOGO_DATA_URI}" alt="MustCare">`;
     document.getElementById('setup-brand-mark').innerHTML = `<img src="${LOGO_DATA_URI}" alt="MustCare">`;
