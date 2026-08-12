@@ -2900,6 +2900,10 @@
       const closedStatuses = ['Perlu Estimasi', 'Estimasi Terkirim', 'Ditolak (Harga Tidak Cocok)', 'Batal'];
       const bisaLanjutNota = !sudahJadiNota && !closedStatuses.includes(o.status);
       const menungguRespon = o.status === 'Estimasi Terkirim';
+      // Order yang sudah Selesai DAN sudah ada notanya dikunci - tidak boleh
+      // diedit lagi oleh siapa pun (termasuk admin), supaya data yang sudah
+      // tercatat di nota/laporan tidak berubah diam-diam.
+      const terkunci = o.status === 'Selesai' && sudahJadiNota;
       const estimasiInfo = o.estimasiTotal ? `<div style="font-size:11px; color:var(--muted); margin-top:2px;">Est: ${fmtRp(o.estimasiTotal)}</div>` : '';
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -2915,13 +2919,15 @@
               <button class="icon-btn" data-action="approve-estimasi" data-id="${o.id}" title="Estimasi Disetujui - Lanjut Jadwal" style="color:var(--dark-green);">✅</button>
               <button class="icon-btn danger" data-action="reject-estimasi" data-id="${o.id}" title="Estimasi Ditolak - Case Closed">❌</button>
             ` : ''}
-            <button class="icon-btn" data-action="edit-order" data-id="${o.id}" title="Edit">✎</button>
-            ${(o.estimasiItems && o.estimasiItems.length) ? `<button class="icon-btn" data-action="print-estimasi" data-id="${o.id}" title="Cetak Estimasi Harga">📋</button>` : ''}
-            <button class="icon-btn" data-action="print-spk" data-id="${o.id}" title="Cetak SPK (Surat Perintah Kerja)">📄</button>
-            ${o.teknisiHp ? `<button class="icon-btn" data-action="wa-teknisi" data-id="${o.id}" title="Kirim Info Job ke Teknisi via WA" style="color:#25D366;">📲</button>` : ''}
+            ${terkunci
+              ? `<button class="icon-btn" disabled title="Sudah Selesai & ada nota - terkunci, tidak bisa diedit lagi" style="opacity:.4; cursor:not-allowed;">🔒</button>`
+              : `<button class="icon-btn" data-action="edit-order" data-id="${o.id}" title="Edit">✎</button>`}
+            ${(!terkunci && o.estimasiItems && o.estimasiItems.length) ? `<button class="icon-btn" data-action="print-estimasi" data-id="${o.id}" title="Cetak Estimasi Harga">📋</button>` : ''}
+            ${terkunci ? '' : `<button class="icon-btn" data-action="print-spk" data-id="${o.id}" title="Cetak SPK (Surat Perintah Kerja)">📄</button>`}
+            ${(o.teknisiHp && !terkunci) ? `<button class="icon-btn" data-action="wa-teknisi" data-id="${o.id}" title="Kirim Info Job ke Teknisi via WA" style="color:#25D366;">📲</button>` : ''}
             ${bisaLanjutNota ? `<button class="icon-btn" data-action="complete-order" data-id="${o.id}" title="Selesaikan & Buat Nota">🧾</button>` : ''}
             ${sudahJadiNota ? `<span title="Sudah ada nota" style="font-size:11px; color:var(--dark-green); font-weight:700;">✓ Ada nota</span>` : ''}
-            ${isAdmin() ? `<button class="icon-btn danger" data-action="delete-order" data-id="${o.id}" title="Hapus">🗑</button>` : ''}
+            ${(isAdmin() && !terkunci) ? `<button class="icon-btn danger" data-action="delete-order" data-id="${o.id}" title="Hapus">🗑</button>` : ''}
           </div>
         </td>
       `;
