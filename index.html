@@ -796,12 +796,12 @@
           </div>
           <div class="field">
             <label style="visibility:hidden;">Aksi</label>
-            <button class="btn btn-primary" id="btn-download-laporan" style="width:100%;">⬇️ Download Laporan (CSV)</button>
+            <button class="btn btn-primary" id="btn-download-laporan" style="width:100%;">⬇️ Download Laporan (Excel)</button>
           </div>
         </div>
         <div class="settings-note" style="margin-top:4px;">
-          Kolom: Produk (nama item/layanan), Merk, Nama Konsumen, Waktu Kunjungan, Qty, Teknisi, Nominal.
-          File CSV bisa langsung dibuka di Excel/LibreOffice/Google Sheets.
+          Kolom: Produk (nama item/layanan), Merk, Nama Konsumen, Waktu Kunjungan, Qty, Teknisi, Nominal (sudah termasuk diskon &amp; biaya tambahan per item).
+          Diunduh sebagai file Excel (.xlsx) dengan kolom yang sudah rapi.
         </div>
       </div>
     </div>
@@ -1077,6 +1077,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 (function(){
   "use strict";
@@ -3709,14 +3710,12 @@
   // Direkap dari state.notaList (sudah tersinkron dari Google Sheets) - jadi
   // tidak perlu input ulang manual di spreadsheet. Setiap ITEM di nota jadi
   // 1 baris laporan (bukan per-nota), supaya kolom Qty & Nominal akurat.
+  // Diskon & biaya tambahan di level nota diprorata ke tiap item sesuai
+  // porsi harganya, supaya Nominal per baris = pendapatan bersih riil (kalau
+  // dijumlah semua baris dalam 1 nota, hasilnya = Total nota itu).
   // Merk/Teknisi/Waktu Kunjungan diambil dari Order yang terhubung ke nota
   // itu (lewat orderId) - kalau nota dibuat manual tanpa order terhubung,
   // kolom-kolom itu akan kosong.
-  function csvEscape(val){
-    const s = String(val === undefined || val === null ? '' : val);
-    if(/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
-    return s;
-  }
   function buildLaporanHarianRows(tglDari, tglSampai){
     const rows = [];
     state.notaList
@@ -3726,7 +3725,14 @@
         const waktuKunjungan = order && order.tglPengerjaan
           ? order.tglPengerjaan + (order.jamPengerjaan ? ' ' + order.jamPengerjaan : '')
           : n.tanggal;
-        (n.items || []).forEach(it=>{
+        const items = n.items || [];
+        const notaSubtotal = items.reduce((s,it)=> s + (Number(it.qty)||0)*(Number(it.harga)||0), 0);
+        const diskon = Number(n.diskon) || 0;
+        const tambahan = Number(n.tambahan) || 0;
+        items.forEach(it=>{
+          const itemGross = (Number(it.qty)||0) * (Number(it.harga)||0);
+          const share = notaSubtotal > 0 ? (itemGross / notaSubtotal) : 0;
+          const itemNominal = Math.round(itemGross - (diskon * share) + (tambahan * share));
           rows.push({
             produk: it.desc || '-',
             merk: (order && order.merk) ? order.merk : '',
@@ -3734,7 +3740,7 @@
             waktuKunjungan: waktuKunjungan,
             qty: Number(it.qty) || 0,
             teknisi: (order && order.teknisi) ? order.teknisi : '',
-            nominal: (Number(it.qty)||0) * (Number(it.harga)||0),
+            nominal: itemNominal,
           });
         });
       });
@@ -3752,22 +3758,47 @@
       toast('Tidak ada transaksi tercatat pada rentang ' + tglDari + ' s/d ' + tglSampai);
       return;
     }
+    if(typeof XLSX === 'undefined'){
+      toast('Gagal memuat komponen Excel. Cek koneksi internet lalu coba lagi.');
+      return;
+    }
+
     const header = ['Produk','Merk','Nama Konsumen','Waktu Kunjungan','Qty','Teknisi','Nominal'];
-    const lines = [header.map(csvEscape).join(',')];
-    rows.forEach(r=>{
-      lines.push([r.produk, r.merk, r.namaKonsumen, r.waktuKunjungan, r.qty, r.teknisi, r.nominal].map(csvEscape).join(','));
-    });
-    const csvContent = '\uFEFF' + lines.join('\r\n'); // BOM biar karakter khusus rapi di Excel
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
+    const aoa = [header];
+    rows.forEach(r=> aoa.push([r.produk, r.merk, r.namaKonsumen, r.waktuKunjungan, r.qty, r.teknisi, r.nominal]));
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    // Lebar kolom disesuaikan per isi, supaya tidak ada lagi "####" karena kolom kesempitan
+    ws['!cols'] = [
+      { wch: 30 }, // Produk
+      { wch: 14 }, // Merk
+      { wch: 22 }, // Nama Konsumen
+      { wch: 17 }, // Waktu Kunjungan
+      { wch: 7 },  // Qty
+      { wch: 16 }, // Teknisi
+      { wch: 15 }, // Nominal
+    ];
+    if(!ws['!ref']){ toast('Gagal membentuk data laporan'); return; }
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for(let r = range.s.r + 1; r <= range.e.r; r++){
+      // Kolom D (Waktu Kunjungan) dipaksa jadi teks supaya format tanggalnya
+      // konsisten di semua baris (tidak ditebak ulang oleh Excel per baris).
+      const dCell = ws[XLSX.utils.encode_cell({ r, c: 3 })];
+      if(dCell) dCell.t = 's';
+      // Kolom G (Nominal) diberi format ribuan supaya rapi & tetap berupa angka (bisa dijumlah)
+      const gCell = ws[XLSX.utils.encode_cell({ r, c: 6 })];
+      if(gCell) gCell.z = '#,##0';
+    }
+    // Header baris 1 ditebalkan
+    for(let c = range.s.c; c <= range.e.c; c++){
+      const cell = ws[XLSX.utils.encode_cell({ r: 0, c })];
+      if(cell) cell.s = { font: { bold: true } };
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Laporan Harian');
     const rangeLabel = tglDari === tglSampai ? tglDari : (tglDari + '_sd_' + tglSampai);
-    a.download = 'Laporan_Harian_MustCare_' + rangeLabel + '.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    XLSX.writeFile(wb, 'Laporan_Harian_MustCare_' + rangeLabel + '.xlsx', { cellStyles: true });
     toast('Laporan ' + tglDari + ' s/d ' + tglSampai + ' berhasil diunduh (' + rows.length + ' baris)');
   }
   document.getElementById('laporan-tanggal-dari').value = todayISO();
