@@ -800,7 +800,7 @@
           </div>
         </div>
         <div class="settings-note" style="margin-top:4px;">
-          Kolom: Produk (nama item/layanan), Merk, Nama Konsumen, Waktu Kunjungan, Qty, Teknisi, Nominal (sudah termasuk diskon &amp; biaya tambahan per item).
+          Kolom: Produk (nama item/layanan), Merk, Nama Konsumen, Waktu Kunjungan, Qty, Teknisi, Nominal (harga kotor per item), Diskon (porsi diskon nota untuk item itu).
           Diunduh sebagai file Excel (.xlsx) dengan kolom yang sudah rapi.
         </div>
       </div>
@@ -3710,9 +3710,10 @@
   // Direkap dari state.notaList (sudah tersinkron dari Google Sheets) - jadi
   // tidak perlu input ulang manual di spreadsheet. Setiap ITEM di nota jadi
   // 1 baris laporan (bukan per-nota), supaya kolom Qty & Nominal akurat.
-  // Diskon & biaya tambahan di level nota diprorata ke tiap item sesuai
-  // porsi harganya, supaya Nominal per baris = pendapatan bersih riil (kalau
-  // dijumlah semua baris dalam 1 nota, hasilnya = Total nota itu).
+  // Nominal = harga kotor per item (qty x harga satuan), APA ADANYA - tidak
+  // dikurangi diskon. Diskon nota diprorata ke tiap item sesuai porsi
+  // harganya dan ditampilkan di kolom terpisah, supaya rinciannya tetap utuh
+  // dan kelihatan jelas per baris (bukan sudah digabung jadi nominal bersih).
   // Merk/Teknisi/Waktu Kunjungan diambil dari Order yang terhubung ke nota
   // itu (lewat orderId) - kalau nota dibuat manual tanpa order terhubung,
   // kolom-kolom itu akan kosong.
@@ -3728,11 +3729,10 @@
         const items = n.items || [];
         const notaSubtotal = items.reduce((s,it)=> s + (Number(it.qty)||0)*(Number(it.harga)||0), 0);
         const diskon = Number(n.diskon) || 0;
-        const tambahan = Number(n.tambahan) || 0;
         items.forEach(it=>{
           const itemGross = (Number(it.qty)||0) * (Number(it.harga)||0);
           const share = notaSubtotal > 0 ? (itemGross / notaSubtotal) : 0;
-          const itemNominal = Math.round(itemGross - (diskon * share) + (tambahan * share));
+          const itemDiskon = Math.round(diskon * share);
           rows.push({
             produk: it.desc || '-',
             merk: (order && order.merk) ? order.merk : '',
@@ -3740,7 +3740,8 @@
             waktuKunjungan: waktuKunjungan,
             qty: Number(it.qty) || 0,
             teknisi: (order && order.teknisi) ? order.teknisi : '',
-            nominal: itemNominal,
+            nominal: itemGross,
+            diskon: itemDiskon,
           });
         });
       });
@@ -3763,9 +3764,9 @@
       return;
     }
 
-    const header = ['Produk','Merk','Nama Konsumen','Waktu Kunjungan','Qty','Teknisi','Nominal'];
+    const header = ['Produk','Merk','Nama Konsumen','Waktu Kunjungan','Qty','Teknisi','Nominal','Diskon'];
     const aoa = [header];
-    rows.forEach(r=> aoa.push([r.produk, r.merk, r.namaKonsumen, r.waktuKunjungan, r.qty, r.teknisi, r.nominal]));
+    rows.forEach(r=> aoa.push([r.produk, r.merk, r.namaKonsumen, r.waktuKunjungan, r.qty, r.teknisi, r.nominal, r.diskon]));
 
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     // Lebar kolom disesuaikan per isi, supaya tidak ada lagi "####" karena kolom kesempitan
@@ -3777,6 +3778,7 @@
       { wch: 7 },  // Qty
       { wch: 16 }, // Teknisi
       { wch: 15 }, // Nominal
+      { wch: 13 }, // Diskon
     ];
     if(!ws['!ref']){ toast('Gagal membentuk data laporan'); return; }
     const range = XLSX.utils.decode_range(ws['!ref']);
@@ -3785,9 +3787,11 @@
       // konsisten di semua baris (tidak ditebak ulang oleh Excel per baris).
       const dCell = ws[XLSX.utils.encode_cell({ r, c: 3 })];
       if(dCell) dCell.t = 's';
-      // Kolom G (Nominal) diberi format ribuan supaya rapi & tetap berupa angka (bisa dijumlah)
+      // Kolom Nominal (G) & Diskon (H) diberi format ribuan supaya rapi & tetap berupa angka (bisa dijumlah)
       const gCell = ws[XLSX.utils.encode_cell({ r, c: 6 })];
       if(gCell) gCell.z = '#,##0';
+      const hCell = ws[XLSX.utils.encode_cell({ r, c: 7 })];
+      if(hCell) hCell.z = '#,##0';
     }
     // Header baris 1 ditebalkan
     for(let c = range.s.c; c <= range.e.c; c++){
