@@ -488,6 +488,15 @@
             <select id="o-jenis"></select>
             <input type="text" id="o-jenis-custom" placeholder="Ketik jenis layanan (khusus/custom)" style="display:none; margin-top:8px;">
           </div>
+          <div class="field">
+            <label>Merk <span class="opt">(opsional - unit/barang yang dikerjakan)</span></label>
+            <input type="text" id="o-merk" list="merk-suggestions" placeholder="cth. Daikin, Panasonic, LG, Sharp" autocomplete="off">
+            <datalist id="merk-suggestions">
+              <option value="Daikin"><option value="Panasonic"><option value="LG"><option value="Sharp">
+              <option value="Samsung"><option value="Polytron"><option value="Sanyo"><option value="Midea">
+              <option value="Gree"><option value="Aqua"><option value="Modena"><option value="Ariston">
+            </datalist>
+          </div>
           <div class="field span2">
             <label>Keluhan/Kebutuhan <span class="opt">(opsional)</span></label>
             <input type="text" id="o-keluhan" placeholder="cth. AC kurang dingin, kotor">
@@ -771,6 +780,26 @@
 
   <!-- ===================== TAB: DASHBOARD ===================== -->
   <div class="view" id="view-dashboard">
+    <div class="panel" style="margin-bottom:20px;">
+      <div class="panel-header">
+        <div><h2>Laporan Harian</h2><div class="sub">Rekap semua transaksi (per item) dalam 1 hari, langsung dari data aplikasi - tidak perlu input ulang di spreadsheet</div></div>
+      </div>
+      <div class="panel-body">
+        <div class="field-grid">
+          <div class="field">
+            <label>Tanggal Laporan</label>
+            <input type="date" id="laporan-tanggal">
+          </div>
+          <div class="field" style="display:flex; align-items:flex-end;">
+            <button class="btn btn-primary" id="btn-download-laporan" style="width:100%;">⬇️ Download Laporan Harian (CSV)</button>
+          </div>
+        </div>
+        <div class="settings-note" style="margin-top:4px;">
+          Kolom: Produk (nama item/layanan), Merk, Nama Konsumen, Waktu Kunjungan, Qty, Teknisi, Nominal.
+          File CSV bisa langsung dibuka di Excel/LibreOffice/Google Sheets.
+        </div>
+      </div>
+    </div>
     <div class="stat-grid">
       <div class="stat-card">
         <div class="label">Total Nota</div>
@@ -2641,6 +2670,7 @@
     document.getElementById('o-tanggal').value = todayISO();
     document.getElementById('o-jam').value = '';
     renderJenisLayananSelect('');
+    document.getElementById('o-merk').value = '';
     document.getElementById('o-keluhan').value = '';
     document.getElementById('o-status').value = 'Booking';
     document.getElementById('o-teknisi').value = '';
@@ -2688,6 +2718,7 @@
       jenisLayanan: document.getElementById('o-jenis').value === '__custom__'
         ? document.getElementById('o-jenis-custom').value.trim()
         : document.getElementById('o-jenis').value,
+      merk: document.getElementById('o-merk').value.trim(),
       keluhan: document.getElementById('o-keluhan').value.trim(),
       status: document.getElementById('o-status').value,
       teknisi: document.getElementById('o-teknisi').value.trim(),
@@ -2756,6 +2787,7 @@
     document.getElementById('o-tanggal').value = o.tglOrder || todayISO();
     document.getElementById('o-jam').value = o.jamOrder || '';
     renderJenisLayananSelect(o.jenisLayanan || '');
+    document.getElementById('o-merk').value = o.merk || '';
     document.getElementById('o-keluhan').value = o.keluhan || '';
     document.getElementById('o-status').value = o.status || 'Booking';
     document.getElementById('o-teknisi').value = o.teknisi || '';
@@ -3373,6 +3405,7 @@
         <tbody>
           <tr><td style="width:150px; color:var(--muted);">No. Order</td><td class="cell-nota">${o.noOrder}</td></tr>
           <tr><td style="color:var(--muted);">Jenis Layanan</td><td>${escapeHtml(o.jenisLayanan || '-')}</td></tr>
+          <tr><td style="color:var(--muted);">Merk</td><td>${escapeHtml(o.merk || '-')}</td></tr>
           <tr><td style="color:var(--muted);">Keluhan / Kebutuhan</td><td>${escapeHtml(o.keluhan || '-')}</td></tr>
           <tr><td style="color:var(--muted);">Tgl &amp; Jam Pengerjaan</td><td>${o.tglPengerjaan ? fmtDate(o.tglPengerjaan) : 'Belum dijadwalkan'}${o.jamPengerjaan ? ' • ' + escapeHtml(o.jamPengerjaan) : ''}</td></tr>
           <tr><td style="color:var(--muted);">Catatan</td><td>${escapeHtml(o.catatan || '-')}</td></tr>
@@ -3495,6 +3528,7 @@
         <tbody>
           <tr><td style="width:150px; color:var(--muted);">No. Order</td><td class="cell-nota">${o.noOrder}</td></tr>
           <tr><td style="color:var(--muted);">Jenis Layanan</td><td>${escapeHtml(o.jenisLayanan || '-')}</td></tr>
+          <tr><td style="color:var(--muted);">Merk</td><td>${escapeHtml(o.merk || '-')}</td></tr>
           <tr><td style="color:var(--muted);">Keluhan / Kebutuhan</td><td>${escapeHtml(o.keluhan || '-')}</td></tr>
         </tbody>
       </table>
@@ -3666,6 +3700,68 @@
   document.getElementById('btn-download-pdf').addEventListener('click', downloadPdf);
 
   // ---------- Dashboard ----------
+  // ---------- Laporan Harian (Dashboard) ----------
+  // Direkap dari state.notaList (sudah tersinkron dari Google Sheets) - jadi
+  // tidak perlu input ulang manual di spreadsheet. Setiap ITEM di nota jadi
+  // 1 baris laporan (bukan per-nota), supaya kolom Qty & Nominal akurat.
+  // Merk/Teknisi/Waktu Kunjungan diambil dari Order yang terhubung ke nota
+  // itu (lewat orderId) - kalau nota dibuat manual tanpa order terhubung,
+  // kolom-kolom itu akan kosong.
+  function csvEscape(val){
+    const s = String(val === undefined || val === null ? '' : val);
+    if(/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+  function buildLaporanHarianRows(tanggal){
+    const rows = [];
+    state.notaList
+      .filter(n => n.tanggal === tanggal)
+      .forEach(n=>{
+        const order = n.orderId ? state.orderList.find(o=> o.id === n.orderId) : null;
+        const waktuKunjungan = order && order.tglPengerjaan
+          ? order.tglPengerjaan + (order.jamPengerjaan ? ' ' + order.jamPengerjaan : '')
+          : n.tanggal;
+        (n.items || []).forEach(it=>{
+          rows.push({
+            produk: it.desc || '-',
+            merk: (order && order.merk) ? order.merk : '',
+            namaKonsumen: n.nama || '-',
+            waktuKunjungan: waktuKunjungan,
+            qty: Number(it.qty) || 0,
+            teknisi: (order && order.teknisi) ? order.teknisi : '',
+            nominal: (Number(it.qty)||0) * (Number(it.harga)||0),
+          });
+        });
+      });
+    return rows;
+  }
+  function downloadLaporanHarian(){
+    const tanggal = document.getElementById('laporan-tanggal').value || todayISO();
+    const rows = buildLaporanHarianRows(tanggal);
+    if(rows.length === 0){
+      toast('Tidak ada transaksi tercatat untuk tanggal ' + tanggal);
+      return;
+    }
+    const header = ['Produk','Merk','Nama Konsumen','Waktu Kunjungan','Qty','Teknisi','Nominal'];
+    const lines = [header.map(csvEscape).join(',')];
+    rows.forEach(r=>{
+      lines.push([r.produk, r.merk, r.namaKonsumen, r.waktuKunjungan, r.qty, r.teknisi, r.nominal].map(csvEscape).join(','));
+    });
+    const csvContent = '\uFEFF' + lines.join('\r\n'); // BOM biar karakter khusus rapi di Excel
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Laporan_Harian_MustCare_' + tanggal + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Laporan harian ' + tanggal + ' berhasil diunduh (' + rows.length + ' baris)');
+  }
+  document.getElementById('laporan-tanggal').value = todayISO();
+  document.getElementById('btn-download-laporan').addEventListener('click', downloadLaporanHarian);
+
   function renderDashboard(){
     const totalNota = state.notaList.length;
     const totalOmzet = state.notaList.reduce((s,n)=>s+n.total,0);
