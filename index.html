@@ -3230,6 +3230,7 @@
     document.getElementById('empty-state').style.display = list.length ? 'none' : 'block';
 
     list.forEach(n=>{
+      const terkunciNota = n.status === 'Lunas';
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="cell-nota">${n.noNota}${n.perluDicek ? ` <span class="badge badge-dp" title="Ada item manual dari teknisi, harga belum standar" style="margin-left:4px;">⚠️ Cek</span>` : ''}</td>
@@ -3240,8 +3241,10 @@
         <td>
           <div class="row-actions">
             <button class="icon-btn" data-action="print" data-id="${n.id}" title="Lihat / Cetak">🖨️</button>
-            ${isAdmin() ? `<button class="icon-btn" data-action="edit" data-id="${n.id}" title="Edit">✎</button>` : ''}
-            ${isAdmin() ? `<button class="icon-btn danger" data-action="delete" data-id="${n.id}" title="Hapus">🗑</button>` : ''}
+            ${terkunciNota
+              ? `<button class="icon-btn" disabled title="Sudah Lunas - terkunci, tidak bisa diedit lagi" style="opacity:.4; cursor:not-allowed;">🔒</button>`
+              : (isAdmin() ? `<button class="icon-btn" data-action="edit" data-id="${n.id}" title="Edit">✎</button>` : '')}
+            ${(isAdmin() && !terkunciNota) ? `<button class="icon-btn danger" data-action="delete" data-id="${n.id}" title="Hapus">🗑</button>` : ''}
           </div>
         </td>
       `;
