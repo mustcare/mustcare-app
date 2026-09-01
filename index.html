@@ -532,8 +532,12 @@
             <div class="totals-row grand"><span>Total Estimasi</span><span class="mono" id="calc-estimasi-total">Rp 0</span></div>
           </div>
           <div class="field span3" style="margin-top:14px;">
-            <label>Catatan Estimasi <span class="opt">(opsional - alasan ditolak, dsb)</span></label>
+            <label>Catatan Estimasi <span class="opt">(opsional - internal saja, TIDAK tampil di cetak PDF - cth. alasan ditolak, negosiasi harga)</span></label>
             <input type="text" id="o-estimasi-catatan" placeholder="cth. Customer minta diskon, belum deal harga">
+          </div>
+          <div class="field span3" style="margin-top:10px;">
+            <label>Catatan untuk Customer <span class="opt">(opsional - IKUT tampil di cetak PDF Estimasi - cth. syarat garansi)</span></label>
+            <input type="text" id="o-estimasi-catatan-customer" placeholder="cth. Garansi berlaku jika menggunakan pipa baru dari MustCare">
           </div>
         </div>
 
@@ -2687,6 +2691,7 @@
     state.estimasiItems = [];
     document.getElementById('o-perlu-estimasi').value = 'tidak';
     document.getElementById('o-estimasi-catatan').value = '';
+    document.getElementById('o-estimasi-catatan-customer').value = '';
     renderEstimasiItems();
     updateEstimasiVisibility();
   }
@@ -2740,6 +2745,7 @@
         : [],
       estimasiTotal: document.getElementById('o-perlu-estimasi').value === 'ya' ? updateEstimasiTotal() : 0,
       estimasiCatatan: document.getElementById('o-estimasi-catatan').value.trim(),
+      estimasiCatatanCustomer: document.getElementById('o-estimasi-catatan-customer').value.trim(),
     };
 
     const btn = document.getElementById('btn-simpan-order');
@@ -2805,6 +2811,7 @@
     state.estimasiItems = (o.estimasiItems && o.estimasiItems.length) ? o.estimasiItems.map(it=>({...it})) : [];
     document.getElementById('o-perlu-estimasi').value = state.estimasiItems.length ? 'ya' : 'tidak';
     document.getElementById('o-estimasi-catatan').value = o.estimasiCatatan || '';
+    document.getElementById('o-estimasi-catatan-customer').value = o.estimasiCatatanCustomer || '';
     renderEstimasiItems();
     updateEstimasiVisibility();
     updateEstimasiTotal();
@@ -3569,6 +3576,12 @@
         Estimasi ini bersifat sementara dan dapat berubah menyesuaikan kondisi aktual di lapangan.
         Pengerjaan akan dijadwalkan setelah estimasi ini disetujui oleh customer.
       </div>
+
+      ${o.estimasiCatatanCustomer ? `
+      <div style="margin-top:12px; padding:10px 14px; background:#FBF3E1; border:1px solid #E8C87A; border-radius:8px; font-size:11.5px; color:#7A5A10; line-height:1.6;">
+        <strong>Catatan:</strong> ${escapeHtml(o.estimasiCatatanCustomer)}
+      </div>
+      ` : ''}
 
       <div style="margin-top:28px; border-top:1px dashed var(--muted); padding-top:18px;">
         <div style="font-size:12px; font-weight:700; color:var(--dark-green); text-align:center; margin-bottom:18px; letter-spacing:.03em;">
