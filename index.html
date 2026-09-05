@@ -2375,7 +2375,22 @@
       'Mohon konfirmasi kesiapan ya. Terima kasih 🙏',
     ].filter(Boolean).join('\n');
     const url = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(lines);
-    window.open(url, '_blank');
+    openExternalUrl(url);
+  }
+
+  // window.open() sering diblokir sebagai popup oleh browser HP (terutama
+  // Chrome Android) kalau dipanggil dari dalam handler yang bukan klik
+  // langsung yang "murni". Trik yang lebih andal: bikin elemen <a> asli lalu
+  // simulasikan klik - browser memperlakukannya sama seperti user mengklik
+  // link beneran, jadi tidak kena blokir popup.
+  function openExternalUrl(url){
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 
   // ---------- Helper: dropdown dari Daftar Harga Standar ----------
