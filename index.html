@@ -2378,19 +2378,15 @@
     openExternalUrl(url);
   }
 
-  // window.open() sering diblokir sebagai popup oleh browser HP (terutama
-  // Chrome Android) kalau dipanggil dari dalam handler yang bukan klik
-  // langsung yang "murni". Trik yang lebih andal: bikin elemen <a> asli lalu
-  // simulasikan klik - browser memperlakukannya sama seperti user mengklik
-  // link beneran, jadi tidak kena blokir popup.
+  // window.open()/target="_blank" untuk link wa.me sering tidak konsisten di
+  // browser HP (kadang dianggap popup dan dibuka di tab baru secara diam-diam
+  // tanpa pindah fokus, jadi user merasa "tidak ada aksi"). Cara yang lebih
+  // andal untuk deep-link WhatsApp: navigasi LANGSUNG di tab yang sama -
+  // begitu browser mendeteksi domain wa.me, HP akan otomatis alihkan ke app
+  // WhatsApp sebelum sempat pindah halaman beneran, jadi tab MustCare tetap
+  // aman di belakang.
   function openExternalUrl(url){
-    const a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    window.location.href = url;
   }
 
   // ---------- Helper: dropdown dari Daftar Harga Standar ----------
