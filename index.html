@@ -1490,6 +1490,14 @@
 
   function renderTeknisiMode(){
     if(!state.currentUser || state.currentUser.role !== 'teknisi') return;
+    // PENTING: kalau teknisi lagi buka detail job (misal tengah proses tiba
+    // di lokasi / ambil foto before-after), JANGAN dipaksa balik ke daftar
+    // job oleh refresh berkala di background (setInterval tiap 25 detik)
+    // atau oleh refresh yang dipicu aksi lain yang sedang berjalan. Ini
+    // dulu yang bikin proses kepotong di tengah jalan dan foto yang baru
+    // diambil "hilang" - layar detail job dikembalikan sendiri secara
+    // eksplisit oleh openTeknisiJobDetail() setelah suatu aksi selesai.
+    if(state.teknisiScreen === 'jobdetail') return;
     const row = todayAbsensiRow();
     if(!row){
       showTekScreen('absen');
