@@ -559,7 +559,8 @@
           </div>
           <div class="field">
             <label>Teknisi</label>
-            <input type="text" id="o-teknisi" placeholder="Nama teknisi">
+            <select id="o-teknisi-select"></select>
+            <input type="text" id="o-teknisi" placeholder="Ketik nama teknisi baru" style="display:none; margin-top:8px;">
           </div>
           <div class="field">
             <label>No. WA Teknisi <span class="opt">(buat kirim notif job)</span></label>
@@ -2436,6 +2437,58 @@
     }
   });
 
+  // ---------- Helper: dropdown Teknisi (dari histori nama & no. WA teknisi ----------
+  // yang sudah pernah dipakai di Order - jadi tidak perlu tabel teknisi
+  // terpisah). Ambil no. WA TERAKHIR yang tercatat untuk nama itu.
+  function getKnownTeknisiList(){
+    const map = {};
+    state.orderList.forEach(o=>{
+      const nama = (o.teknisi || '').trim();
+      if(!nama) return;
+      const key = nama.toLowerCase();
+      const sortKey = (o.tglOrder || '') + (o.jamOrder || '') + (o.id || '');
+      if(!map[key] || sortKey > map[key].sortKey){
+        map[key] = { nama: nama, hp: o.teknisiHp || '', sortKey: sortKey };
+      }
+    });
+    return Object.values(map).sort((a,b)=> a.nama.localeCompare(b.nama));
+  }
+  function renderTeknisiSelect(selectedValue){
+    const sel = document.getElementById('o-teknisi-select');
+    if(!sel) return;
+    const list = getKnownTeknisiList();
+    const matched = selectedValue && list.find(t=> t.nama.toLowerCase() === String(selectedValue).trim().toLowerCase());
+    let html = '<option value="" disabled' + (selectedValue ? '' : ' selected') + '>-- Pilih Teknisi --</option>';
+    list.forEach(t=>{
+      const s = (matched && t.nama.toLowerCase() === String(selectedValue).trim().toLowerCase()) ? ' selected' : '';
+      html += `<option value="${escapeAttr(t.nama)}"${s}>${escapeHtml(t.nama)}</option>`;
+    });
+    html += `<option value="__custom__"${(selectedValue && !matched) ? ' selected' : ''}>+ Tambah Teknisi Baru</option>`;
+    sel.innerHTML = html;
+    const customField = document.getElementById('o-teknisi');
+    if(selectedValue && !matched){
+      customField.style.display = 'block';
+      customField.value = selectedValue;
+    } else {
+      customField.style.display = 'none';
+      customField.value = '';
+    }
+  }
+  document.getElementById('o-teknisi-select').addEventListener('change', (e)=>{
+    const customField = document.getElementById('o-teknisi');
+    const hpField = document.getElementById('o-teknisi-hp');
+    if(e.target.value === '__custom__'){
+      customField.style.display = 'block';
+      customField.value = '';
+      customField.focus();
+    } else {
+      customField.style.display = 'none';
+      customField.value = '';
+      const match = getKnownTeknisiList().find(t=> t.nama === e.target.value);
+      if(match && match.hp) hpField.value = match.hp;
+    }
+  });
+
   // ---------- Estimasi Harga (bagian dari Order) ----------
   function updateEstimasiVisibility(){
     const val = document.getElementById('o-perlu-estimasi').value;
@@ -2695,6 +2748,7 @@
     document.getElementById('o-keluhan').value = '';
     document.getElementById('o-status').value = 'Booking';
     document.getElementById('o-teknisi').value = '';
+    renderTeknisiSelect('');
     document.getElementById('o-teknisi-hp').value = '';
     document.getElementById('o-tglkerja').value = '';
     document.getElementById('o-jamkerja').value = '';
@@ -2743,7 +2797,9 @@
       merk: document.getElementById('o-merk').value.trim(),
       keluhan: document.getElementById('o-keluhan').value.trim(),
       status: document.getElementById('o-status').value,
-      teknisi: document.getElementById('o-teknisi').value.trim(),
+      teknisi: document.getElementById('o-teknisi-select').value === '__custom__'
+        ? document.getElementById('o-teknisi').value.trim()
+        : document.getElementById('o-teknisi-select').value,
       teknisiHp: document.getElementById('o-teknisi-hp').value.trim(),
       tglPengerjaan: document.getElementById('o-tglkerja').value,
       jamPengerjaan: document.getElementById('o-jamkerja').value.trim(),
@@ -2813,7 +2869,7 @@
     document.getElementById('o-merk').value = o.merk || '';
     document.getElementById('o-keluhan').value = o.keluhan || '';
     document.getElementById('o-status').value = o.status || 'Booking';
-    document.getElementById('o-teknisi').value = o.teknisi || '';
+    renderTeknisiSelect(o.teknisi || '');
     document.getElementById('o-teknisi-hp').value = o.teknisiHp || '';
     document.getElementById('o-tglkerja').value = o.tglPengerjaan || '';
     document.getElementById('o-jamkerja').value = o.jamPengerjaan || '';
@@ -2960,6 +3016,14 @@
     body.querySelectorAll('[data-action="approve-estimasi"]').forEach(b=> b.addEventListener('click', ()=> respondEstimasi(b.dataset.id, true)));
     body.querySelectorAll('[data-action="reject-estimasi"]').forEach(b=> b.addEventListener('click', ()=> respondEstimasi(b.dataset.id, false)));
     body.querySelectorAll('[data-action="wa-teknisi"]').forEach(b=> b.addEventListener('click', ()=> sendWaToTeknisi(b.dataset.id)));
+
+    // Sinkronkan dropdown Teknisi (form Order) tiap kali data order berubah,
+    // sambil pertahankan pilihan yang sedang aktif di form (kalau ada).
+    const teknisiSel = document.getElementById('o-teknisi-select');
+    if(teknisiSel){
+      const current = teknisiSel.value === '__custom__' ? document.getElementById('o-teknisi').value : teknisiSel.value;
+      renderTeknisiSelect(current);
+    }
   }
   document.getElementById('order-search-box').addEventListener('input', renderOrderTable);
   document.getElementById('order-filter-status').addEventListener('change', renderOrderTable);
