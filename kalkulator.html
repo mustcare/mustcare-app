@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kalkulator listrik AC | MustCare</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap">
+<style>
+:root{
+  --bg:#f2faf6; --surface:#ffffff; --ink:#0b2b24; --muted:#4d6b62; --line:#cfe5dc;
+  --brand:#085041; --brand2:#0f6e56; --mint:#9fe1cb; --warn:#8a4b00; --warnbg:#fff3df;
+  color-scheme: light;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#06251f; --surface:#0b3a30; --ink:#eaf8f2; --muted:#9cc7b8; --line:#17594a;
+    --brand:#9fe1cb; --brand2:#9fe1cb; --mint:#9fe1cb; --warn:#ffd89a; --warnbg:#3a2c0f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#06251f; --surface:#0b3a30; --ink:#eaf8f2; --muted:#9cc7b8; --line:#17594a;
+  --brand:#9fe1cb; --brand2:#9fe1cb; --mint:#9fe1cb; --warn:#ffd89a; --warnbg:#3a2c0f;
+  color-scheme: dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.55}
+.wrap{max-width:640px;margin:0 auto;padding:20px 18px 48px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--brand)}
+.logoimg{height:96px;width:auto;background:#fff;border-radius:14px;padding:8px;display:block}
+.logo{width:34px;height:34px;border-radius:9px;background:var(--brand2);color:#fff;display:grid;place-items:center;font-weight:800}
+:root:not([data-theme="light"]) .logo{}
+h1{font-size:clamp(1.7rem,6vw,2.3rem);line-height:1.15;margin:22px 0 6px;font-weight:800;letter-spacing:-.02em}
+.lead{margin:0 0 22px;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
+.field{margin-bottom:18px}
+.field:last-child{margin-bottom:0}
+label{display:flex;justify-content:space-between;gap:10px;font-weight:600;margin-bottom:6px}
+label output{color:var(--brand2);font-weight:800}
+select,input[type=number]{width:100%;font:inherit;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+input[type=range]{width:100%;accent-color:var(--brand2)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+:focus-visible{outline:3px solid var(--brand2);outline-offset:2px}
+.result{margin-top:22px;border-radius:18px;background:var(--brand);color:#fff;padding:22px 20px}
+:root[data-theme="dark"] .result,:root:not([data-theme="light"]) .result{}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .result{color:#06251f}}
+.result small{opacity:.85;display:block}
+.big{font-size:clamp(2.2rem,10vw,3.4rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin:2px 0 4px}
+.sub{margin:0;opacity:.9}
+.waste{margin-top:14px;padding:16px;border-radius:14px;background:var(--warnbg);color:var(--warn);border:1px solid var(--line)}
+.waste b{font-size:1.25rem;display:block}
+.tip{margin-top:12px;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:var(--surface)}
+.cta{margin-top:22px;text-align:center}
+.cta p{margin:0 0 12px;font-weight:600}
+.btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.btn{display:inline-block;padding:12px 18px;border-radius:999px;font-weight:800;text-decoration:none;border:2px solid var(--brand2);color:var(--brand2)}
+.btn.main{background:var(--brand2);color:#fff}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.main{color:#06251f}}
+.note{margin-top:26px;font-size:.82rem;color:var(--muted)}
+.note li{margin-bottom:4px}
+@media (max-width:420px){.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="brand"><img class="logoimg" src="data:image/jpeg;base64,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" alt="MustCare Home Appliance Maintenance" width="157" height="150"></div>
+  <h1>Berapa listrik AC lo per bulan?</h1>
+  <p class="lead">Isi data AC lo, lihat estimasi biayanya dan berapa yang terbuang kalau filternya kotor.</p>
+
+  <section class="card" aria-label="Data AC">
+    <div class="row">
+      <div class="field">
+        <label for="pk">Ukuran AC</label>
+        <select id="pk">
+          <option value="0.5">1/2 PK</option>
+          <option value="0.75">3/4 PK</option>
+          <option value="1" selected>1 PK</option>
+          <option value="1.5">1,5 PK</option>
+          <option value="2">2 PK</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="unit">Jumlah unit</label>
+        <input id="unit" type="number" min="1" max="20" value="1" inputmode="numeric">
+      </div>
+    </div>
+    <div class="field">
+      <label for="jam">Dipakai per hari <output id="jamV">8 jam</output></label>
+      <input id="jam" type="range" min="1" max="24" value="8">
+    </div>
+    <div class="field">
+      <label for="suhu">Suhu yang diatur <output id="suhuV">24°C</output></label>
+      <input id="suhu" type="range" min="16" max="28" value="24">
+    </div>
+    <div class="field">
+      <label for="tarif">Daya listrik rumah</label>
+      <select id="tarif">
+        <option value="1352">900 VA non-subsidi (Rp1.352/kWh)</option>
+        <option value="1444.7" selected>1.300 - 2.200 VA (Rp1.444,70/kWh)</option>
+        <option value="1699.53">3.500 VA ke atas (Rp1.699,53/kWh)</option>
+      </select>
+    </div>
+  </section>
+
+  <section class="result" aria-live="polite">
+    <small>Estimasi biaya listrik AC per bulan</small>
+    <div class="big" id="bulan">Rp 0</div>
+    <p class="sub" id="kwh"></p>
+  </section>
+
+  <div class="waste">
+    Kalau filter dan evaporator kotor, tambahan biaya bisa mencapai
+    <b id="waste">Rp 0 - Rp 0 per bulan</b>
+    <span id="wasteY"></span>
+  </div>
+
+  <div class="tip" id="tip"></div>
+
+  <section class="cta">
+    <p>Mau AC lo dicek dan dicuci teknisi MustCare di Bekasi?</p>
+    <div class="btns">
+      <a class="btn main" href="tel:08159988173">Hubungi 0815-9988-173</a>
+      <a class="btn" href="https://www.instagram.com/mustcare.official" target="_blank" rel="noopener">DM @mustcare.official</a>
+    </div>
+  </section>
+
+  <ul class="note">
+    <li>Ini estimasi, bukan tagihan pasti. Hitungan memakai patokan rata-rata 0,625 kWh per PK per jam pada suhu 24°C. Pemakaian nyata tergantung tipe AC (inverter atau non-inverter), kondisi ruangan, dan cuaca.</li>
+    <li>Tarif mengacu pada tarif PLN rumah tangga non-subsidi yang berlaku Oktober 2026.</li>
+    <li>Tambahan 5-20% untuk filter kotor berasal dari rentang di sumber umum (pernyataan spesialis HVAC dan klaim merek AC), bukan hasil uji MustCare. Tiap 1°C lebih rendah, listrik naik sekitar 3%.</li>
+  </ul>
+</main>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var rp=function(n){return "Rp "+Math.round(n).toLocaleString("id-ID")};
+  function calc(){
+    var pk=parseFloat($("pk").value);
+    var unit=Math.max(1,parseInt($("unit").value,10)||1);
+    var jam=parseInt($("jam").value,10);
+    var suhu=parseInt($("suhu").value,10);
+    var tarif=parseFloat($("tarif").value);
+    $("jamV").textContent=jam+" jam";
+    $("suhuV").textContent=suhu+"°C";
+    var faktor=Math.max(0.5,1+0.03*(24-suhu));
+    var kwh=pk*0.625*jam*30*unit*faktor;
+    var biaya=kwh*tarif;
+    $("bulan").textContent=rp(biaya);
+    $("kwh").textContent="Sekitar "+Math.round(kwh).toLocaleString("id-ID")+" kWh per bulan untuk "+unit+" unit.";
+    var lo=biaya*0.05, hi=biaya*0.20;
+    $("waste").textContent=rp(lo)+" - "+rp(hi)+" per bulan";
+    $("wasteY").textContent="Setahun sekitar "+rp(lo*12)+" - "+rp(hi*12)+".";
+    var tip=$("tip");
+    if(suhu<26){
+      var hemat=biaya-(biaya/faktor*Math.max(0.5,1+0.03*(24-26)));
+      tip.textContent="Naikkan suhu ke 26°C dan lo bisa hemat sekitar "+rp(hemat)+" per bulan, tanpa bikin ruangan terasa jauh lebih panas.";
+    } else {
+      tip.textContent="Suhu "+suhu+"°C sudah wajar. Yang paling berpengaruh sekarang adalah kebersihan filter dan evaporator, yang sebaiknya dicuci tiap 3-4 bulan untuk pemakaian harian.";
+    }
+  }
+  ["pk","unit","jam","suhu","tarif"].forEach(function(id){
+    $(id).addEventListener("input",calc);
+    $(id).addEventListener("change",calc);
+  });
+  calc();
+})();
+</script>
+</body>
+</html>
